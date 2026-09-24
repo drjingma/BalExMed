@@ -1,0 +1,10 @@
+test_that("simulate_balexmed returns data consistent with its arguments", {
+  set.seed(13)
+  sim <- simulate_balexmed(n = 25, d = 9, n_plus = 2, n_minus = 4, beta = 0)
+  expect_equal(dim(sim$X), c(25, 9))
+  expect_equal(rowSums(sim$X), rep(1, 25))
+  expect_equal(unname(sim$z), c(1, 1, -1, -1, -1, -1, 0, 0, 0))
+  expect_equal(sim$balance, balance(sim$X, sim$z))
+  expect_equal(unname(sim$effects), c(1/3, 0))
+  expect_error(simulate_balexmed(d = 5, n_plus = 3, n_minus = 3), "must not exceed")
+})

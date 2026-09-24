@@ -1,0 +1,93 @@
+---
+title: "Getting started with BalExMed"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with BalExMed}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 5)
+```
+
+BalExMed fits a mediation model in which a composition, such as the relative
+abundances of gut microbial taxa, is the exposure. Existing compositional
+mediation methods treat the microbiome as the mediator; here it is upstream of
+both the mediator and the outcome.
+
+## Model
+
+The composition $x_i$ enters through a balance, the normalized log-ratio between
+the geometric means of two groups of parts,
+$$
+B(z, x_i) = \sqrt{\frac{a_+ a_-}{a_+ + a_-}}
+  \left(\frac{1}{a_+}\sum_{z_j = 1} \log x_{ij} - \frac{1}{a_-}\sum_{z_j = -1} \log x_{ij}\right).
+$$
+The vector $z \in \{-1, 0, 1\}^d$ is unknown. The mediator $m_i$ and the outcome
+$y_i$ follow
+$$
+m_i = \alpha B(z, x_i) + \psi_m^\top c_i + e_i, \qquad
+y_i = \gamma B(z, x_i) + \beta m_i + \psi_y^\top c_i + \varepsilon_i .
+$$
+For a unit increase in the balance, the direct effect is $\gamma$ and the
+indirect effect is $\alpha\beta$. These effects have a causal interpretation
+only under the usual mediation assumptions, including no unmeasured confounding
+of the exposure, mediator and outcome given $c_i$.
+
+## Simulated example
+
+```{r}
+library(BalExMed)
+set.seed(2024)
+sim <- simulate_balexmed(n = 150, d = 30, alpha = 1/3, beta = 2, gamma = 1/3)
+sim$effects
+head(sim$z, 8)
+```
+
+The data contain no zeros because `simulate_balexmed()` replaces them with a
+pseudocount. Real data need the same treatment before fitting.
+
+```{r}
+fit <- balexmed(sim$X, sim$m, sim$y, covariates = sim$covariates,
+                eta = 1/5, n_iter = 2000, burn_in = 1000,
+                n_chains = 2, z_init = "pca", seed = 1)
+summary(fit)
+```
+
+These chains are short to keep the vignette fast. For an analysis, run several
+chains long enough that the split-Rhat values are close to 1 and the inclusion
+probabilities agree across chains.
+
+## Selected parts
+
+```{r}
+head(taxa_table(fit), 10)
+```
+
+`signed` is the posterior probability that a part is in the numerator minus the
+probability that it is in the denominator. By construction $\gamma > 0$, so the
+numerator holds the parts whose higher relative abundance goes with a higher
+outcome through the direct path.
+
+```{r}
+z_hat <- selected_z(fit)
+table(estimated = z_hat, true = sim$z)
+cor(balance(sim$X, z_hat), sim$balance)
+```
+
+## Diagnostics
+
+```{r}
+plot(fit)
+plot(fit, type = "inclusion", top = 12)
+```
+
+Posterior draws are available as a data frame or as a `coda` object for further
+diagnostics.
+
+```{r}
+draws <- effect_draws(fit)
+quantile(draws$indirect / draws$total, c(0.025, 0.5, 0.975))
+coda::gelman.diag(as_mcmc_list(fit, c("gamma", "indirect")))
+```

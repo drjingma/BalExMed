@@ -1,0 +1,8 @@
+bibentry(
+  bibtype = "Unpublished",
+  title = "Mediation Analysis with Compositional Exposures",
+  author = c(person("Jing", "Ma")),
+  year = "2026",
+  note = "Manuscript in preparation; R package BalExMed",
+  textVersion = "Ma, J. (2026). Mediation Analysis with Compositional Exposures. Manuscript in preparation. R package BalExMed."
+)
